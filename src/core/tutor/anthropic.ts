@@ -4,9 +4,13 @@ import type { DialogMessage } from './types';
  * Groq API — free tier with generous PER-USER limits:
  * - 30 requests/min, 14400 requests/day
  * - llama-3.3-70b-versatile: fast, good at Russian
- * Proxied through Vite to avoid CORS.
+ * In dev, proxied through Vite (see vite.config.ts) to dodge the dev-server origin.
+ * In production (static build, no backend) we call Groq directly — Groq's API
+ * sends `Access-Control-Allow-Origin: *`, so this works without a server-side proxy.
  */
-const API_URL = '/api/groq/openai/v1/chat/completions';
+const API_URL = import.meta.env.DEV
+  ? '/api/groq/openai/v1/chat/completions'
+  : 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL = 'llama-3.3-70b-versatile';
 const MAX_TOKENS = 300;
 

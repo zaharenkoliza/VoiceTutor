@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useLoggerStore } from './loggerStore';
 import type { DialogMessage, Task } from '../core/tutor/types';
 import { buildSystemPrompt, buildUserMessage } from '../core/tutor/prompt';
 import { sendToAI } from '../core/tutor/anthropic';
@@ -20,10 +21,11 @@ interface TutorState {
   // Audio state
   isMuted: boolean;       // User explicitly muted the mic
   interimTranscript: string; // What user is currently saying
+  lastVoiceConfidence: number | undefined; // STT confidence for last voice query
 
   error: string | null;
 
-  requestHint: (task: Task, code: string, voiceQuestion?: string) => Promise<void>;
+  requestHint: (task: Task, code: string, voiceQuestion?: string, verificationContext?: { isCorrect: boolean; attempt: number }, isIdleCheck?: boolean) => Promise<void>;
   toggleMute: () => void;
   initAudio: () => void;
   clearHistory: () => void;
@@ -40,17 +42,18 @@ export const useTutorStore = create<TutorState>((set, get) => ({
   
   isMuted: true, // Start muted until user joins "call"
   interimTranscript: '',
+  lastVoiceConfidence: undefined,
   error: null,
 
   initAudio: () => {
     initSpeechRecognition(
-      (text: string, isFinal: boolean) => {
+      (text: string, isFinal: boolean, confidence?: number) => {
         const state = get();
         // If AI is speaking or mic is muted, ignore input
         if (state.isMuted || state.isSpeaking) return;
 
         if (isFinal) {
-          set({ interimTranscript: '' });
+          set({ interimTranscript: '', lastVoiceConfidence: confidence });
           // Stop AI if it's talking (user interrupted)
           if (state.isSpeaking) {
             get().interruptAI();
@@ -83,17 +86,38 @@ export const useTutorStore = create<TutorState>((set, get) => ({
     resumeContinuousListening();
   },
 
-  requestHint: async (task: Task, code: string, voiceQuestion?: string) => {
+  requestHint: async (task: Task, code: string, voiceQuestion?: string, verificationContext?: { isCorrect: boolean; attempt: number }, isIdleCheck?: boolean) => {
     const state = get();
-    if (state.isLoading) return;
+    if (state.isLoading || state.isSpeaking) return;
 
     const codeContent = code.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#')).join('').trim();
-    if (!codeContent && !voiceQuestion) return;
+    if (!codeContent && !voiceQuestion && !verificationContext && !isIdleCheck) return;
 
     set({ isLoading: true, error: null });
 
     try {
-      const userMessage = buildUserMessage(task, code, voiceQuestion);
+      // Log voice query if present, with STT confidence and timestamp for future WER/CER/latency analysis
+      if (voiceQuestion) {
+        const sttEndTimestamp = new Date().toISOString();
+        useLoggerStore.getState().logEvent({
+          type: 'voice_query',
+          content: voiceQuestion,
+          confidence: state.lastVoiceConfidence,
+          sttEndTimestamp,
+        });
+        // Increment voiceQueryCount on the current session
+        const loggerState = useLoggerStore.getState();
+        if (loggerState.currentSession) {
+          useLoggerStore.setState({
+            currentSession: {
+              ...loggerState.currentSession,
+              voiceQueryCount: loggerState.currentSession.voiceQueryCount + 1,
+            },
+          });
+        }
+      }
+
+      const userMessage = buildUserMessage(task, code, voiceQuestion, verificationContext, isIdleCheck);
       const systemPrompt = buildSystemPrompt();
 
       const messages: DialogMessage[] = [
@@ -101,7 +125,23 @@ export const useTutorStore = create<TutorState>((set, get) => ({
         { role: 'user', content: userMessage },
       ];
 
+      const aiStartTime = Date.now();
       const response = await sendToAI(systemPrompt, messages);
+      const latencyMs = Date.now() - aiStartTime;
+
+      // Log tutor response with latency
+      useLoggerStore.getState().logEvent({ type: 'tutor_response', content: response, latencyMs });
+
+      // Increment hintCount on the current session
+      const loggerState = useLoggerStore.getState();
+      if (loggerState.currentSession) {
+        useLoggerStore.setState({
+          currentSession: {
+            ...loggerState.currentSession,
+            hintCount: loggerState.currentSession.hintCount + 1,
+          },
+        });
+      }
 
       set((prev) => ({
         dialogHistory: [
@@ -140,6 +180,7 @@ export const useTutorStore = create<TutorState>((set, get) => ({
       isLoading: false,
       isSpeaking: false,
       interimTranscript: '',
+      lastVoiceConfidence: undefined,
       error: null,
     });
   },

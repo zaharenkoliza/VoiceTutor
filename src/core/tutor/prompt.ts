@@ -24,6 +24,8 @@ export function buildUserMessage(
   task: Task,
   code: string,
   voiceQuestion?: string,
+  verificationContext?: { isCorrect: boolean; attempt: number },
+  isIdleCheck?: boolean,
 ): string {
   let message = `Задание №${task.number}: ${task.title}
 ${task.description}
@@ -37,5 +39,18 @@ ${code}
     message += `\n\nВопрос ученика: ${voiceQuestion}`;
   }
 
+  if (verificationContext) {
+    if (verificationContext.isCorrect) {
+      message += `\n\nСистема проверки: ответ ученика ВЕРНЫЙ (попытка №${verificationContext.attempt}). Похвали ученика!`;
+    } else {
+      message += `\n\nСистема проверки: ответ ученика НЕВЕРНЫЙ (попытка №${verificationContext.attempt}). Подскажи где может быть ошибка в логике, но НЕ давай правильный ответ и НЕ давай готовый код.`;
+    }
+  }
+
+  if (isIdleCheck && !voiceQuestion && !verificationContext) {
+    message += `\n\nУченик уже какое-то время молчит и не меняет код. Коротко (одно предложение) спроси, не нужна ли ему помощь или подсказка.`;
+  }
+
   return message;
 }
+

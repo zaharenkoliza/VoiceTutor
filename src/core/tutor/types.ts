@@ -14,4 +14,8 @@ export interface Task {
   description: string;
   /** Initial code template (if any) */
   starterCode?: string;
+  /** The single correct answer (as it would be entered on EGE form) */
+  expectedAnswer: string;
+  /** Reference solution in Python provided by the tutor */
+  referenceSolution?: string;
 }

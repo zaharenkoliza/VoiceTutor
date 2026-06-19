@@ -1,10 +1,10 @@
 let recognition: any = null;
 let isContinuousListening = false;
-let onResultCallback: ((text: string, isFinal: boolean) => void) | null = null;
+let onResultCallback: ((text: string, isFinal: boolean, confidence?: number) => void) | null = null;
 let onErrorCallback: ((error: string) => void) | null = null;
 
 export function initSpeechRecognition(
-  onResult: (text: string, isFinal: boolean) => void,
+  onResult: (text: string, isFinal: boolean, confidence?: number) => void,
   onError: (error: string) => void
 ) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -26,17 +26,23 @@ export function initSpeechRecognition(
   recognition.onresult = (event: any) => {
     let finalTranscript = '';
     let interimTranscript = '';
+    let bestConfidence: number | undefined;
 
     for (let i = event.resultIndex; i < event.results.length; ++i) {
       if (event.results[i].isFinal) {
         finalTranscript += event.results[i][0].transcript;
+        // Capture confidence from Web Speech API (0–1) for future WER/CER analysis
+        const conf = event.results[i][0].confidence;
+        if (conf != null && (bestConfidence == null || conf < bestConfidence)) {
+          bestConfidence = conf;
+        }
       } else {
         interimTranscript += event.results[i][0].transcript;
       }
     }
 
     if (finalTranscript && onResultCallback) {
-      onResultCallback(finalTranscript, true);
+      onResultCallback(finalTranscript, true, bestConfidence);
     } else if (interimTranscript && onResultCallback) {
       onResultCallback(interimTranscript, false);
     }

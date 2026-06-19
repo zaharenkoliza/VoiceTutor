@@ -16,6 +16,28 @@ async function loadPyodideAndPackages() {
       self.postMessage({ type: 'stderr', text: str });
     }
   });
+
+  // Generate input files for tasks 17 and 27 in Pyodide virtual filesystem
+  try {
+    await self.pyodide.runPythonAsync(`
+import random
+# 17.txt
+random.seed(42)
+with open('17.txt', 'w') as f:
+    for _ in range(10000):
+        f.write(str(random.randint(-1000, 1000)) + '\\n')
+
+# 27.txt
+random.seed(777)
+with open('27.txt', 'w') as f:
+    f.write('100000\\n')
+    for _ in range(100000):
+        f.write(str(random.randint(1, 10000)) + '\\n')
+`);
+  } catch (e) {
+    console.error("Failed to generate test files:", e);
+  }
+
   self.postMessage({ type: 'ready' });
 }
 

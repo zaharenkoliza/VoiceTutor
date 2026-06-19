@@ -1,16 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { tasks } from '../data/tasks';
 import { useEditorStore } from '../store/editorStore';
 import { useTutorStore } from '../store/tutorStore';
+import { useLoggerStore } from '../store/loggerStore';
 
 export function TaskSelector() {
   const setQueue = useEditorStore((s) => s.setQueue);
   const clearHistory = useTutorStore((s) => s.clearHistory);
+  const startSession = useLoggerStore((s) => s.startSession);
+  const exportCSV = useLoggerStore((s) => s.exportCSV);
+  const allSessions = useLoggerStore((s) => s.allSessions);
+  const clearAllSessions = useLoggerStore((s) => s.clearAllSessions);
+  const init = useLoggerStore((s) => s.init);
   
   const [mode, setMode] = useState<'initial' | 'practice'>('initial');
 
+  // Load sessions from localStorage on mount
+  useEffect(() => {
+    init();
+  }, [init]);
+
   const handleSelectTask = (taskId: string) => {
     clearHistory();
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) startSession(task);
     setQueue([taskId]); // queue of 1
   };
 
@@ -28,7 +41,16 @@ export function TaskSelector() {
       const tb = tasks.find(t => t.id === b)!;
       return ta.number - tb.number;
     });
+    // Start session for the first task in queue
+    const firstTask = tasks.find(t => t.id === queue[0]);
+    if (firstTask) startSession(firstTask);
     setQueue(queue);
+  };
+
+  const handleClearSessions = () => {
+    if (window.confirm('Удалить все сохранённые сессии? Это действие нельзя отменить.')) {
+      clearAllSessions();
+    }
   };
 
   if (mode === 'practice') {
@@ -64,11 +86,17 @@ export function TaskSelector() {
 
   return (
     <div className="task-selector">
-      <h1 className="task-selector__title">VoiceTutor 2.0</h1>
+      <div className="task-selector__glow" />
+      <span className="task-selector__eyebrow">
+        <span className="task-selector__eyebrow-dot" />
+        AI-репетитор на связи
+      </span>
+      <h1 className="task-selector__title">VoiceTutor</h1>
       <p className="task-selector__subtitle">
-        Симуляция созвона с репетитором по информатике (Pyodide Edition)
+        Голосовой AI-репетитор по информатике — объясняет, подсказывает и слушает
+        вас в реальном времени, как живой преподаватель на созвоне.
       </p>
-      
+
       <div style={{display: 'flex', gap: '20px', marginTop: '40px'}}>
         <div 
           className="task-card" 
@@ -94,6 +122,29 @@ export function TaskSelector() {
           </p>
         </div>
       </div>
+
+      {/* Session data controls */}
+      {allSessions.length > 0 && (
+        <div className="session-data-controls">
+          <span className="session-data-controls__count">
+            📊 Записано сессий: {allSessions.length}
+          </span>
+          <button
+            className="export-btn"
+            onClick={exportCSV}
+            id="export-csv-button"
+          >
+            📥 Экспорт CSV
+          </button>
+          <button
+            className="export-btn export-btn--danger"
+            onClick={handleClearSessions}
+            id="clear-sessions-button"
+          >
+            🗑 Очистить
+          </button>
+        </div>
+      )}
     </div>
   );
 }

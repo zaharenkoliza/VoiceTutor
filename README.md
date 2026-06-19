@@ -1,73 +1,164 @@
-# React + TypeScript + Vite
+# VoiceTutor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Прототип веб-приложения с голосовым AI-тьютором для подготовки к ЕГЭ по информатике.
 
-Currently, two official plugins are available:
+> **Статус**: артефакт НИР-2. Прототип и модуль логирования подготовлены для проведения эксперимента в рамках НИР-3.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Исследовательский контекст
 
-## React Compiler
+| | |
+|---|---|
+| **Объект** | Голосовой интерфейс в образовательных веб-приложениях |
+| **Предмет** | Голосовой интерфейс как средство поддержки учебной деятельности в веб-приложениях для подготовки к ЕГЭ по информатике |
+| **Цель** | Исследовать влияние голосового интерфейса на решение учебных задач |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Возможности прототипа
 
-## Expanding the ESLint configuration
+- **Задания ЕГЭ** — набор задач №17, 24, 25, 26, 27 с автоматической проверкой ответов
+- **AI-тьютор** — генерирует наводящие подсказки через Groq API (LLaMA 3.3 70B), никогда не даёт готовый ответ
+- **Голосовой ввод** — Web Speech API (STT) для голосовых вопросов ученика
+- **Голосовой вывод** — Web Speech Synthesis API (TTS) для озвучивания подсказок тьютора
+- **Редактор кода** — Monaco Editor с подсветкой Python
+- **Выполнение кода** — Pyodide (Python 3.11 в браузере через WebAssembly)
+- **Логирование сессий** — сбор сырых данных для будущего анализа (НИР-3)
+- **Экспорт CSV** — выгрузка всех сессий для дальнейшей обработки
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Модуль логирования
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Модуль `src/core/logger.ts` и `src/store/loggerStore.ts` собирает сырые данные взаимодействия для будущего расчёта метрик в НИР-3:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Метрики голосового канала
+- **WER / CER** — через `confidence` (из Web Speech API) и сохранённые транскрипции
+- **IRA** — через анализ сохранённого контента голосовых запросов
+- **In-domain coverage** — через `voiceQueryCount` и контент запросов
+- **Латентность отклика** — через `sttEndTimestamp` и `latencyMs`
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Метрики task-level (ISO 9241-11)
+- **TSR** — через `result` (solved/unsolved)
+- **TtS** — через `startedAt` / `endedAt`
+- **Hint Count** — через `hintCount`
+- **FCRR** — через `firstRunCorrect` и `isFirstRun`
+- **Типология ошибок** — через `errorCategory` (syntax/runtime/logic/none)
+- **DCR** — через `dialogCompleted`
+
+> **Важно**: модуль логирования собирает только сырые данные. Расчёт самих метрик — задача НИР-3.
+
+## Технологический стек
+
+- **React 19** + **TypeScript** + **Vite**
+- **Zustand** — управление состоянием
+- **Monaco Editor** — редактор кода
+- **Pyodide** — выполнение Python в браузере
+- **Web Speech API** — распознавание и синтез речи
+- **Groq API** (LLaMA 3.3 70B) — генерация подсказок тьютора
+
+## Быстрый старт
+
+### Требования
+
+- Node.js 18+
+- Бесплатный API-ключ Groq ([console.groq.com/keys](https://console.groq.com/keys))
+- Браузер Google Chrome (для Web Speech API)
+
+### Установка
+
+```bash
+# Клонировать репозиторий
+git clone <url>
+cd VoiceTutor
+
+# Установить зависимости
+npm install
+
+# Создать .env файл
+cp .env.example .env
+# Добавить API-ключ в .env: VITE_GROQ_API_KEY=gsk_...
+
+# Запустить dev-сервер
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Использование
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. Откройте приложение в Chrome
+2. Выберите режим: «Случайный вариант» или «Тренировка заданий»
+3. Пишите код в редакторе, нажмите «▶ Запустить»
+4. Нажмите «✓ Проверить» для автопроверки ответа
+5. Включите микрофон для голосового общения с тьютором
+6. По завершении экспортируйте данные сессий в CSV
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Деплой (helios.cs.ifmo.ru)
+
+Приложение собирается в статический бандл (`dist/`) и заливается по SCP на сервер — никакого Node.js/backend на сервере не требуется.
+
+### 1. Собрать прод-билд локально
+
+```bash
+npm run build
+```
+
+Результат — папка `dist/` (HTML, JS, CSS, `pyodideWorker.js`, иконки).
+
+> `base` в [vite.config.ts](vite.config.ts) выставлен в `/~s335141/voicetutor/`, чтобы все пути к ассетам резолвились правильно из подпапки. Если меняете путь деплоя — поменяйте и `base`.
+
+### 2. Залить на сервер по SCP
+
+```bash
+ssh -p 2222 s335141@helios.cs.ifmo.ru 'mkdir -p public_html/voicetutor'
+scp -P 2222 -r dist/* s335141@helios.cs.ifmo.ru:public_html/voicetutor/
+```
+
+(Если на сервере есть `rsync`, удобнее `rsync -avz --delete -e "ssh -p 2222" dist/ s335141@helios.cs.ifmo.ru:public_html/voicetutor/` — не оставляет старые файлы от предыдущих сборок.)
+
+Приложение откроется по адресу `https://helios.cs.ifmo.ru/~s335141/voicetutor/`.
+
+### 3. Какой `.env` нужен на сервере
+
+**Никакой.** Сервер просто раздаёт статику (Apache), там нет процесса, который читает `.env`. Переменная `VITE_GROQ_API_KEY` подставляется Vite **на этапе `npm run build`, на вашей машине**, и в виде обычной строки попадает прямо в скомпилированный JS-бандл (`dist/assets/index-*.js`).
+
+Это значит:
+- `.env` нужен только локально, перед `npm run build` — он никогда не копируется на сервер и не должен попасть в git (уже в `.gitignore`).
+- **Любой посетитель сайта может открыть DevTools → Network/Sources и увидеть ваш Groq API-ключ в открытом виде.** Архитектура статического SPA без backend технически не позволяет скрыть клиентский ключ — это не баг конфигурации, а свойство такого деплоя.
+
+### Как себя обезопасить при таком ключе
+
+Поскольку ключ неизбежно публичный, относитесь к нему как к одноразовому/расходному, а не как к секрету:
+
+1. **Заведите отдельный Groq-ключ только для этого деплоя** (console.groq.com/keys) — не используйте тот же ключ для других проектов, чтобы при компрометации отозвать только его.
+2. **Следите за расходом** в [console.groq.com](https://console.groq.com) — бесплатный тариф ограничен (30 req/min, 14400/день), резкий скачок = кто-то использует ваш ключ напрямую, не через сайт.
+3. **Будьте готовы быстро отозвать и заменить ключ** — отозвать на Groq, вписать новый в `.env`, `npm run build`, передеплоить. Старый бандл с утёкшим ключом теряет силу сразу после отзыва.
+4. **Не давайте прямых ссылок на бандл** (`dist/assets/*.js`) посторонним и не публикуйте этот репозиторий с реальным `.env` — если ключ уже закоммичен в git, отозвать его всё равно обязательно (он останется в истории).
+5. Поскольку проект — учебный прототип с низким трафиком, выставленный лимит free-tier сам по себе ограничивает ущерб от утечки; не используйте этот паттерн (ключ в клиентском бандле) для платного/высоконагруженного API.
+
+## Структура проекта
+
+```
+src/
+├── components/      # React-компоненты UI
+│   ├── App.tsx
+│   ├── TaskPanel.tsx
+│   ├── TaskSelector.tsx
+│   ├── TutorPanel.tsx
+│   ├── TutorAvatar.tsx
+│   ├── VoiceButton.tsx
+│   └── StatusBar.tsx
+├── core/
+│   ├── logger.ts    # Типы и утилиты логирования сессий
+│   ├── speech/
+│   │   ├── stt.ts   # Speech-to-Text (Web Speech API)
+│   │   └── tts.ts   # Text-to-Speech (SpeechSynthesis)
+│   └── tutor/
+│       ├── anthropic.ts  # Клиент Groq API
+│       ├── prompt.ts     # Системный промпт тьютора
+│       ├── types.ts      # Типы задач и сообщений
+│       └── verifier.ts   # Автопроверка ответов ЕГЭ
+├── data/
+│   └── tasks.ts     # Банк задач ЕГЭ
+├── store/
+│   ├── editorStore.ts   # Состояние редактора
+│   ├── loggerStore.ts   # Состояние логирования сессий
+│   ├── runnerStore.ts   # Состояние выполнения кода
+│   └── tutorStore.ts    # Состояние AI-тьютора
+├── index.css        # Стили
+└── main.tsx         # Точка входа
 ```

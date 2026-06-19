@@ -84,6 +84,7 @@ body {
    ============================================ */
 
 .task-selector {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -91,11 +92,53 @@ body {
   height: 100%;
   gap: 24px;
   padding: 40px;
+  overflow: hidden;
+}
+
+.task-selector__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 38%, rgba(124, 58, 237, 0.22), transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.task-selector__eyebrow {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--vt-accent-light);
+  background: rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+.task-selector__eyebrow-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vt-success);
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.7);
+  animation: task-selector-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes task-selector-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(52, 211, 153, 0.6); }
+  50% { opacity: 0.55; box-shadow: 0 0 12px rgba(52, 211, 153, 0.9); }
 }
 
 .task-selector__title {
-  font-size: 2rem;
-  font-weight: 700;
+  position: relative;
+  z-index: 1;
+  font-size: 2.6rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
   background: linear-gradient(135deg, var(--vt-accent-light), var(--vt-accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -104,8 +147,13 @@ body {
 }
 
 .task-selector__subtitle {
+  position: relative;
+  z-index: 1;
   color: var(--vt-text-secondary);
-  font-size: 1rem;
+  font-size: 1.05rem;
+  max-width: 520px;
+  text-align: center;
+  line-height: 1.5;
   margin-bottom: 24px;
 }
 
@@ -174,8 +222,6 @@ body {
 .task-description {
   padding: 16px 20px;
   background: var(--vt-bg-secondary);
-  border-bottom: 1px solid var(--vt-border);
-  max-height: 200px;
   overflow-y: auto;
   flex-shrink: 0;
 }
@@ -224,22 +270,64 @@ body {
    Editor & Terminal Container
    ============================================ */
 
-.workspace-container {
-  flex: 1;
+.editor-container {
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
-.editor-container {
-  flex: 2;
-  min-height: 0;
+.editor-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--vt-bg-secondary);
   border-bottom: 1px solid var(--vt-border);
 }
 
-.terminal-container {
+.editor-container__monaco {
   flex: 1;
-  min-height: 150px;
+  min-height: 0;
+}
+
+/* ── Resize Handle ── */
+
+.resize-handle {
+  height: 6px;
+  background: var(--vt-bg-secondary);
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-top: 1px solid var(--vt-border);
+  border-bottom: 1px solid var(--vt-border);
+  transition: background 0.15s;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: var(--vt-bg-surface-hover);
+}
+
+.resize-handle__grip {
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--vt-text-muted);
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.resize-handle:hover .resize-handle__grip {
+  opacity: 1;
+}
+
+.terminal-container {
+  min-height: 0;
   background: #000;
   color: #0f0;
   font-family: 'Fira Code', monospace;
@@ -289,6 +377,88 @@ body {
 .terminal-btn:hover {
   color: var(--vt-text-primary);
   border-color: var(--vt-text-primary);
+}
+
+/* Run & Check buttons */
+.run-btn {
+  color: var(--vt-success);
+  border-color: var(--vt-success);
+}
+
+.check-btn {
+  color: var(--vt-accent-light);
+  border-color: var(--vt-accent);
+  background: rgba(124, 58, 237, 0.08);
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.check-btn:hover:not(:disabled) {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: var(--vt-accent-light);
+  box-shadow: 0 0 12px var(--vt-accent-glow);
+}
+
+.check-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.check-btn--solved {
+  color: var(--vt-success);
+  border-color: var(--vt-success);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+/* Verification Banner */
+.verification-banner {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  right: 12px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-family: 'Inter', sans-serif;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  animation: verificationSlideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.verification-banner--correct {
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid var(--vt-success);
+  color: var(--vt-success);
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.2);
+}
+
+.verification-banner--incorrect {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid var(--vt-error);
+  color: var(--vt-error);
+  animation: verificationSlideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+             verificationShake 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.35s;
+}
+
+/* Solved & Attempts badges */
+.task-solved-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--vt-success);
+  background: rgba(52, 211, 153, 0.12);
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  animation: hintSlideIn 0.3s ease-out;
+}
+
+.task-attempts-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--vt-text-muted);
+  background: rgba(100, 116, 139, 0.15);
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
 /* ============================================
@@ -572,6 +742,111 @@ body {
 }
 
 /* ============================================
+   Session Controls (solved / unsolved buttons)
+   ============================================ */
+
+.session-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.session-btn {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--vt-border);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.session-btn--solved {
+  color: var(--vt-success);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.session-btn--solved:hover {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: var(--vt-success);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.15);
+}
+
+.session-btn--unsolved {
+  color: var(--vt-error);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.session-btn--unsolved:hover {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: var(--vt-error);
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.15);
+}
+
+.session-controls__divider {
+  width: 1px;
+  height: 20px;
+  background: var(--vt-border);
+  margin: 0 4px;
+  align-self: center;
+}
+
+/* ============================================
+   Session Data Controls (export / clear)
+   ============================================ */
+
+.session-data-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+  padding: 12px 20px;
+  background: var(--vt-bg-surface);
+  border: 1px solid var(--vt-border);
+  border-radius: 12px;
+  animation: hintSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.session-data-controls__count {
+  font-size: 0.82rem;
+  color: var(--vt-text-secondary);
+  font-weight: 500;
+}
+
+.export-btn {
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--vt-accent);
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--vt-accent-light);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.export-btn:hover {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: var(--vt-accent-light);
+  box-shadow: 0 0 14px var(--vt-accent-glow);
+}
+
+.export-btn--danger {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.06);
+  color: var(--vt-text-muted);
+}
+
+.export-btn--danger:hover {
+  border-color: var(--vt-error);
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--vt-error);
+  box-shadow: 0 0 14px rgba(248, 113, 113, 0.15);
+}
+
+/* ============================================
    Keyframes
    ============================================ */
 
@@ -632,3 +907,23 @@ body {
     transform: translateX(-50%) translateY(0);
   }
 }
+
+@keyframes verificationSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes verificationShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
