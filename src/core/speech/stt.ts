@@ -1,4 +1,4 @@
-let recognition: any = null;
+let recognition: SpeechRecognition | null = null;
 let isContinuousListening = false;
 let onResultCallback: ((text: string, isFinal: boolean, confidence?: number) => void) | null = null;
 let onErrorCallback: ((error: string) => void) | null = null;
@@ -23,7 +23,7 @@ export function initSpeechRecognition(
   onResultCallback = onResult;
   onErrorCallback = onError;
 
-  recognition.onresult = (event: any) => {
+  recognition.onresult = (event: SpeechRecognitionEvent) => {
     let finalTranscript = '';
     let interimTranscript = '';
     let bestConfidence: number | undefined;
@@ -48,7 +48,7 @@ export function initSpeechRecognition(
     }
   };
 
-  recognition.onerror = (event: any) => {
+  recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
     // Ignore no-speech, it's normal in continuous mode
     if (event.error === 'no-speech') return;
     
@@ -65,8 +65,8 @@ export function initSpeechRecognition(
     if (isContinuousListening && !isPaused && recognition) {
       try {
         recognition.start();
-      } catch (e) {
-        console.error('Failed to restart recognition', e);
+      } catch (error) {
+        console.error('Failed to restart recognition', error);
       }
     }
   };
@@ -84,7 +84,7 @@ export function resumeContinuousListening() {
   if (isContinuousListening && recognition) {
     try {
       recognition.start();
-    } catch (e) {
+    } catch {
       // Already started
     }
   }
@@ -96,7 +96,7 @@ export function startContinuousListening() {
   isPaused = false;
   try {
     recognition.start();
-  } catch (e) {
+  } catch {
     // Already started
   }
 }

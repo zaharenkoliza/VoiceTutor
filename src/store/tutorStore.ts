@@ -1,8 +1,7 @@
 import { create } from 'zustand';
-import { useLoggerStore } from './loggerStore';
 import type { DialogMessage, Task } from '../core/tutor/types';
-import { buildSystemPrompt, buildUserMessage } from '../core/tutor/prompt';
-import { sendToAI } from '../core/tutor/anthropic';
+import { buildUserMessage } from '../core/tutor/prompt';
+import { createSession, fetchLLMConfig, sendToAI } from '../core/tutor/llmClient';
 import { speak, stopSpeaking } from '../core/speech/tts';
 import { 
   initSpeechRecognition, 
@@ -11,6 +10,7 @@ import {
   pauseContinuousListening,
   resumeContinuousListening
 } from '../core/speech/stt';
+import { useExperimentStore } from './experimentStore';
 
 interface TutorState {
   dialogHistory: DialogMessage[];
@@ -25,7 +25,7 @@ interface TutorState {
 
   error: string | null;
 
-  requestHint: (task: Task, code: string, voiceQuestion?: string, verificationContext?: { isCorrect: boolean; attempt: number }, isIdleCheck?: boolean) => Promise<void>;
+  requestHint: (task: Task, code: string, voiceQuestion?: string, verificationContext?: { isCorrect: boolean; attempt: number }, isIdleCheck?: boolean) => Promise<string | undefined>;
   toggleMute: () => void;
   initAudio: () => void;
   clearHistory: () => void;
@@ -49,31 +49,53 @@ export const useTutorStore = create<TutorState>((set, get) => ({
     initSpeechRecognition(
       (text: string, isFinal: boolean, confidence?: number) => {
         const state = get();
-        // If AI is speaking or mic is muted, ignore input
+        const expState = useExperimentStore.getState();
+
+        // If in text mode or mic is muted or AI is speaking, ignore
+        if (expState.session && expState.activeMode === 'text') return;
         if (state.isMuted || state.isSpeaking) return;
 
         if (isFinal) {
           set({ interimTranscript: '', lastVoiceConfidence: confidence });
-          // Stop AI if it's talking (user interrupted)
           if (state.isSpeaking) {
             get().interruptAI();
           }
-          // We need the latest code/task, so we dispatch a custom event or let the UI handle it.
-          // Better yet, we can store a global ref to task/code, or just emit an event
-          window.dispatchEvent(new CustomEvent('voice-question-ready', { detail: text }));
+          expState.logExperimentEvent('stt_result', {
+            originalTranscript: text,
+            confidence: confidence ?? null,
+            isFinal: true,
+          });
+          if (expState.session) {
+            window.dispatchEvent(new CustomEvent('voice-transcript-ready', {
+              detail: { text, confidence: confidence ?? null },
+            }));
+          } else {
+            window.dispatchEvent(new CustomEvent('voice-question-ready', { detail: text }));
+          }
         } else {
           set({ interimTranscript: text });
         }
       },
-      (err: string) => set({ error: err })
+      (err: string) => {
+        set({ error: err });
+        useExperimentStore.getState().logExperimentEvent('stt_error', { error: err });
+      }
     );
   },
 
   toggleMute: () => {
     const state = get();
+    const expState = useExperimentStore.getState();
+
+    // Do not allow unmuting if mode is text in experiment
+    if (expState.session && expState.activeMode === 'text') {
+      return;
+    }
+
     if (state.isMuted) {
       startContinuousListening();
       set({ isMuted: false, error: null });
+      expState.logExperimentEvent('stt_start', { mode: 'continuous' });
     } else {
       stopContinuousListening();
       set({ isMuted: true, interimTranscript: '' });
@@ -95,53 +117,42 @@ export const useTutorStore = create<TutorState>((set, get) => ({
 
     set({ isLoading: true, error: null });
 
+    const expState = useExperimentStore.getState();
+    const requestId = crypto.randomUUID();
+
     try {
-      // Log voice query if present, with STT confidence and timestamp for future WER/CER/latency analysis
       if (voiceQuestion) {
-        const sttEndTimestamp = new Date().toISOString();
-        useLoggerStore.getState().logEvent({
-          type: 'voice_query',
-          content: voiceQuestion,
-          confidence: state.lastVoiceConfidence,
-          sttEndTimestamp,
-        });
-        // Increment voiceQueryCount on the current session
-        const loggerState = useLoggerStore.getState();
-        if (loggerState.currentSession) {
-          useLoggerStore.setState({
-            currentSession: {
-              ...loggerState.currentSession,
-              voiceQueryCount: loggerState.currentSession.voiceQueryCount + 1,
-            },
-          });
-        }
+        // The experimental confirmation UI logs original and submitted text.
       }
 
       const userMessage = buildUserMessage(task, code, voiceQuestion, verificationContext, isIdleCheck);
-      const systemPrompt = buildSystemPrompt();
-
       const messages: DialogMessage[] = [
         ...state.dialogHistory,
         { role: 'user', content: userMessage },
       ];
 
-      const aiStartTime = Date.now();
-      const response = await sendToAI(systemPrompt, messages);
-      const latencyMs = Date.now() - aiStartTime;
+      expState.logExperimentEvent('tutor_request', {
+        taskId: task.id,
+        question: voiceQuestion ?? null,
+        inputMode: expState.session ? expState.activeMode : 'voice',
+        userMessage,
+        hasVoiceQuestion: !!voiceQuestion,
+        hasVerificationContext: !!verificationContext,
+      }, requestId);
 
-      // Log tutor response with latency
-      useLoggerStore.getState().logEvent({ type: 'tutor_response', content: response, latencyMs });
+      const participantId = expState.session?.participantId || 'demo';
+      const authToken = expState.authToken ?? (await createSession(participantId)).token;
+      const expectedConfig = expState.session?.config.llmConfig ?? await fetchLLMConfig();
+      const responseObj = await sendToAI(messages, authToken, participantId, expectedConfig);
+      const response = responseObj.content;
 
-      // Increment hintCount on the current session
-      const loggerState = useLoggerStore.getState();
-      if (loggerState.currentSession) {
-        useLoggerStore.setState({
-          currentSession: {
-            ...loggerState.currentSession,
-            hintCount: loggerState.currentSession.hintCount + 1,
-          },
-        });
-      }
+      expState.logExperimentEvent('tutor_response', {
+        content: response,
+        latencyMs: responseObj.latencyMs,
+        model: responseObj.model,
+        technicalRetryCount: responseObj.retryCount,
+        usage: responseObj.usage ?? null,
+      }, requestId);
 
       set((prev) => ({
         dialogHistory: [
@@ -153,22 +164,29 @@ export const useTutorStore = create<TutorState>((set, get) => ({
         isLoading: false,
       }));
 
-      // Speak response
-      // Mute microphone temporarily while AI speaks to prevent echo loop
-      set({ isSpeaking: true });
-      pauseContinuousListening();
-      try {
-        await speak(response);
-      } finally {
-        // Only resume if we are still marked as speaking (not interrupted)
-        if (get().isSpeaking) {
-          set({ isSpeaking: false });
-          resumeContinuousListening();
+      // Research voice mode is synthesized explicitly through SpeechKit by its UI.
+      // Browser TTS remains only for the legacy free-training screen.
+      const isExpBlock = expState.activeBlockId === 'block1' || expState.activeBlockId === 'block2';
+      const shouldSpeak = !expState.session && !isExpBlock;
+
+      if (shouldSpeak) {
+        set({ isSpeaking: true });
+        pauseContinuousListening();
+        try {
+          await speak(response);
+        } finally {
+          if (get().isSpeaking) {
+            set({ isSpeaking: false });
+            resumeContinuousListening();
+          }
         }
       }
+      return response;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
       set({ isLoading: false, error: errorMessage });
+      expState.logExperimentEvent('tutor_error', { error: errorMessage }, requestId);
+      return undefined;
     }
   },
 

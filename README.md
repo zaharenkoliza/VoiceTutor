@@ -1,164 +1,135 @@
 # VoiceTutor
 
-Прототип веб-приложения с голосовым AI-тьютором для подготовки к ЕГЭ по информатике.
+VoiceTutor — экспериментальный стенд для исследования эффективности голосового интерфейса в образовательном веб-приложении при решении авторских задач формата ЕГЭ по информатике. Исследование сравнивает интерфейсы `voice` и `text`, а не модели: оба условия используют одну LLM, один серверный system prompt и одинаковые параметры генерации.
 
-> **Статус**: артефакт НИР-2. Прототип и модуль логирования подготовлены для проведения эксперимента в рамках НИР-3.
+Наборы A/B являются кандидатами для пилота; их равносложность ещё не установлена. Результаты выполнения с тьютором сами по себе не являются измерением усвоения знаний.
 
-## Исследовательский контекст
+## Архитектура
 
-| | |
-|---|---|
-| **Объект** | Голосовой интерфейс в образовательных веб-приложениях |
-| **Предмет** | Голосовой интерфейс как средство поддержки учебной деятельности в веб-приложениях для подготовки к ЕГЭ по информатике |
-| **Цель** | Исследовать влияние голосового интерфейса на решение учебных задач |
+```mermaid
+flowchart TD
+  U[Браузер участника] --> F[React/Vite frontend\nYandex Object Storage]
+  F -->|HTTPS| B[Express API\nServerless Containers]
+  B --> L[Yandex AI Studio\nодна Qwen-модель]
+  B --> S[Yandex SpeechKit\nSTT + TTS]
+  B --> P[(Managed PostgreSQL)]
+  F --> I[(IndexedDB\nочередь неподтверждённых событий)]
+```
 
-## Возможности прототипа
+Frontend: React 19, TypeScript, Vite, Zustand, Monaco Editor и Pyodide WebWorker. Backend: Node.js 20, Express 5 и `pg`. Системный prompt находится в `server/src/llm/prompt.ts`; модель задаётся только через `LLM_MODEL`. Аудио записывается одной репликой, преобразуется в mono PCM 16 kHz, отправляется в SpeechKit и не сохраняется приложением.
 
-- **Задания ЕГЭ** — набор задач №17, 24, 25, 26, 27 с автоматической проверкой ответов
-- **AI-тьютор** — генерирует наводящие подсказки через Groq API (LLaMA 3.3 70B), никогда не даёт готовый ответ
-- **Голосовой ввод** — Web Speech API (STT) для голосовых вопросов ученика
-- **Голосовой вывод** — Web Speech Synthesis API (TTS) для озвучивания подсказок тьютора
-- **Редактор кода** — Monaco Editor с подсветкой Python
-- **Выполнение кода** — Pyodide (Python 3.11 в браузере через WebAssembly)
-- **Логирование сессий** — сбор сырых данных для будущего анализа (НИР-3)
-- **Экспорт CSV** — выгрузка всех сессий для дальнейшей обработки
+## Режимы
 
-## Модуль логирования
+- `text`: ввод вопроса → AI Studio → текстовый ответ.
+- `voice`: запись → SpeechKit STT → подтверждаемый текст → та же AI Studio LLM → тот же текстовый ответ → SpeechKit TTS → воспроизведение.
 
-Модуль `src/core/logger.ts` и `src/store/loggerStore.ts` собирает сырые данные взаимодействия для будущего расчёта метрик в НИР-3:
+Назначение режима и набора фиксируется схемой сессии. Доступны четыре порядка: text/A→voice/B, voice/A→text/B, text/B→voice/A, voice/B→text/A.
 
-### Метрики голосового канала
-- **WER / CER** — через `confidence` (из Web Speech API) и сохранённые транскрипции
-- **IRA** — через анализ сохранённого контента голосовых запросов
-- **In-domain coverage** — через `voiceQueryCount` и контент запросов
-- **Латентность отклика** — через `sttEndTimestamp` и `latencyMs`
+## Локальный запуск
 
-### Метрики task-level (ISO 9241-11)
-- **TSR** — через `result` (solved/unsolved)
-- **TtS** — через `startedAt` / `endedAt`
-- **Hint Count** — через `hintCount`
-- **FCRR** — через `firstRunCorrect` и `isFirstRun`
-- **Типология ошибок** — через `errorCategory` (syntax/runtime/logic/none)
-- **DCR** — через `dialogCompleted`
-
-> **Важно**: модуль логирования собирает только сырые данные. Расчёт самих метрик — задача НИР-3.
-
-## Технологический стек
-
-- **React 19** + **TypeScript** + **Vite**
-- **Zustand** — управление состоянием
-- **Monaco Editor** — редактор кода
-- **Pyodide** — выполнение Python в браузере
-- **Web Speech API** — распознавание и синтез речи
-- **Groq API** (LLaMA 3.3 70B) — генерация подсказок тьютора
-
-## Быстрый старт
-
-### Требования
-
-- Node.js 18+
-- Бесплатный API-ключ Groq ([console.groq.com/keys](https://console.groq.com/keys))
-- Браузер Google Chrome (для Web Speech API)
-
-### Установка
+Требуются Node.js 20+, Docker для локального PostgreSQL и ключ сервисного аккаунта Yandex Cloud с доступом к AI Studio, SpeechKit STT и TTS.
 
 ```bash
-# Клонировать репозиторий
-git clone <url>
-cd VoiceTutor
-
-# Установить зависимости
 npm install
-
-# Создать .env файл
+npm --prefix server install
 cp .env.example .env
-# Добавить API-ключ в .env: VITE_GROQ_API_KEY=gsk_...
+cp server/.env.example server/.env
+```
 
-# Запустить dev-сервер
+Заполните `server/.env`. Поднимите PostgreSQL, примените миграцию и запустите API:
+
+```bash
+docker compose up -d postgres
+npm --prefix server run db:migrate
+npm run dev:server
+```
+
+Во втором терминале:
+
+```bash
 npm run dev
 ```
 
-### Использование
+Откройте `http://localhost:5173/#/experiment`. Вариант целиком в контейнерах: `docker compose up --build`; API-контейнер автоматически запускает миграцию.
 
-1. Откройте приложение в Chrome
-2. Выберите режим: «Случайный вариант» или «Тренировка заданий»
-3. Пишите код в редакторе, нажмите «▶ Запустить»
-4. Нажмите «✓ Проверить» для автопроверки ответа
-5. Включите микрофон для голосового общения с тьютором
-6. По завершении экспортируйте данные сессий в CSV
+## Environment variables
 
-## Деплой (helios.cs.ifmo.ru)
+### Frontend
 
-Приложение собирается в статический бандл (`dist/`) и заливается по SCP на сервер — никакого Node.js/backend на сервере не требуется.
+| Переменная | Назначение |
+|---|---|
+| `VITE_API_URL` | Публичный HTTPS URL backend; не должен быть localhost в production |
+| `VITE_BASE_PATH` | Base path статики, обычно `/` |
 
-### 1. Собрать прод-билд локально
+### Backend
+
+| Переменная | Назначение |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `DATABASE_SSL` | `true` для TLS-подключения к Managed PostgreSQL |
+| `YANDEX_CLOUD_FOLDER_ID` | Folder ID Yandex Cloud |
+| `YANDEX_CLOUD_API_KEY` | API key сервисного аккаунта; только backend/Lockbox |
+| `LLM_MODEL` | Полный URI модели, например `gpt://<folder>/<model-id>/latest`; фактический ID выбрать в Model Gallery |
+| `LLM_TEMPERATURE` | Фиксированная температура |
+| `LLM_MAX_TOKENS` | Фиксированный предел ответа |
+| `SPEECHKIT_STT_MODEL` | Модель распознавания, по умолчанию `general` |
+| `SPEECHKIT_TTS_VOICE` | Голос синтеза |
+| `EXPERIMENT_VERSION` | Версия методики, например `2026-09-v1` |
+| `SYSTEM_PROMPT_VERSION` | Версия server-side prompt |
+| `FRONTEND_ORIGIN` / `ALLOWED_ORIGINS` | Разрешённые CORS origins |
+| `ALLOWED_PARTICIPANT_CODES` | Выданные исследователем анонимные коды |
+| `SESSION_SECRET` | HMAC secret сессий |
+| `RESEARCHER_SECRET` | Secret researcher-only экспорта |
+| `PORT` | Порт API, передаётся Serverless Containers |
+
+## Миграции и данные
 
 ```bash
+npm --prefix server run db:migrate
+```
+
+Миграция `server/migrations/001_initial.sql` создаёт `experiment_sessions`, `experiment_events`, `messages`, `llm_requests`, `voice_events`, `task_results` и `ui_events`. `experiment_events` — полная воспроизводимая запись; остальные таблицы — удобные аналитические проекции. Дубликаты исключаются первичным ключом `event_id`.
+
+Клиент сначала пишет событие в IndexedDB и удаляет его из очереди только после подтверждения PostgreSQL-backed API. Аудиофайлы и IP-адреса в экспериментальные таблицы не записываются.
+
+Researcher export требует `Authorization: Bearer researcher:<RESEARCHER_SECRET>`:
+
+- `/api/export/all` — полный JSON;
+- `/api/export/events.csv`;
+- `/api/export/sessions.csv`;
+- `/api/export/task_attempts.csv`;
+- `/api/export/questionnaire.csv`.
+
+## Проверки
+
+```bash
+npm run lint
 npm run build
+npm --prefix server test
+VITE_API_URL=https://<container-id>.containers.yandexcloud.net npm run build:production
+docker build -t voicetutor-api ./server
 ```
 
-Результат — папка `dist/` (HTML, JS, CSS, `pyodideWorker.js`, иконки).
+## Развёртывание в Yandex Cloud
 
-> `base` в [vite.config.ts](vite.config.ts) выставлен в `/~s335141/voicetutor/`, чтобы все пути к ассетам резолвились правильно из подпапки. Если меняете путь деплоя — поменяйте и `base`.
-
-### 2. Залить на сервер по SCP
+Ниже используются placeholders; команды не создают платные ресурсы автоматически.
 
 ```bash
-ssh -p 2222 s335141@helios.cs.ifmo.ru 'mkdir -p public_html/voicetutor'
-scp -P 2222 -r dist/* s335141@helios.cs.ifmo.ru:public_html/voicetutor/
+yc container registry create --name voicetutor
+docker tag voicetutor-api cr.yandex/<REGISTRY_ID>/voicetutor-api:<VERSION>
+docker push cr.yandex/<REGISTRY_ID>/voicetutor-api:<VERSION>
+yc serverless container create --name voicetutor-api
 ```
 
-(Если на сервере есть `rsync`, удобнее `rsync -avz --delete -e "ssh -p 2222" dist/ s335141@helios.cs.ifmo.ru:public_html/voicetutor/` — не оставляет старые файлы от предыдущих сборок.)
+Создайте ревизию контейнера в консоли или CLI, передав образ, service account, VPC и environment/Lockbox secrets. `DATABASE_URL` должен указывать на Managed PostgreSQL; перед первым запуском выполните миграцию из доверенного окружения либо одноразовой ревизией с командой `node dist/db/migrate.js`.
 
-Приложение откроется по адресу `https://helios.cs.ifmo.ru/~s335141/voicetutor/`.
+Frontend:
 
-### 3. Какой `.env` нужен на сервере
-
-**Никакой.** Сервер просто раздаёт статику (Apache), там нет процесса, который читает `.env`. Переменная `VITE_GROQ_API_KEY` подставляется Vite **на этапе `npm run build`, на вашей машине**, и в виде обычной строки попадает прямо в скомпилированный JS-бандл (`dist/assets/index-*.js`).
-
-Это значит:
-- `.env` нужен только локально, перед `npm run build` — он никогда не копируется на сервер и не должен попасть в git (уже в `.gitignore`).
-- **Любой посетитель сайта может открыть DevTools → Network/Sources и увидеть ваш Groq API-ключ в открытом виде.** Архитектура статического SPA без backend технически не позволяет скрыть клиентский ключ — это не баг конфигурации, а свойство такого деплоя.
-
-### Как себя обезопасить при таком ключе
-
-Поскольку ключ неизбежно публичный, относитесь к нему как к одноразовому/расходному, а не как к секрету:
-
-1. **Заведите отдельный Groq-ключ только для этого деплоя** (console.groq.com/keys) — не используйте тот же ключ для других проектов, чтобы при компрометации отозвать только его.
-2. **Следите за расходом** в [console.groq.com](https://console.groq.com) — бесплатный тариф ограничен (30 req/min, 14400/день), резкий скачок = кто-то использует ваш ключ напрямую, не через сайт.
-3. **Будьте готовы быстро отозвать и заменить ключ** — отозвать на Groq, вписать новый в `.env`, `npm run build`, передеплоить. Старый бандл с утёкшим ключом теряет силу сразу после отзыва.
-4. **Не давайте прямых ссылок на бандл** (`dist/assets/*.js`) посторонним и не публикуйте этот репозиторий с реальным `.env` — если ключ уже закоммичен в git, отозвать его всё равно обязательно (он останется в истории).
-5. Поскольку проект — учебный прототип с низким трафиком, выставленный лимит free-tier сам по себе ограничивает ущерб от утечки; не используйте этот паттерн (ключ в клиентском бандле) для платного/высоконагруженного API.
-
-## Структура проекта
-
+```bash
+VITE_API_URL=https://<API_HOST> VITE_BASE_PATH=/ npm run build:production
+aws --endpoint-url=https://storage.yandexcloud.net s3 sync dist/ s3://<BUCKET>/ --delete
 ```
-src/
-├── components/      # React-компоненты UI
-│   ├── App.tsx
-│   ├── TaskPanel.tsx
-│   ├── TaskSelector.tsx
-│   ├── TutorPanel.tsx
-│   ├── TutorAvatar.tsx
-│   ├── VoiceButton.tsx
-│   └── StatusBar.tsx
-├── core/
-│   ├── logger.ts    # Типы и утилиты логирования сессий
-│   ├── speech/
-│   │   ├── stt.ts   # Speech-to-Text (Web Speech API)
-│   │   └── tts.ts   # Text-to-Speech (SpeechSynthesis)
-│   └── tutor/
-│       ├── anthropic.ts  # Клиент Groq API
-│       ├── prompt.ts     # Системный промпт тьютора
-│       ├── types.ts      # Типы задач и сообщений
-│       └── verifier.ts   # Автопроверка ответов ЕГЭ
-├── data/
-│   └── tasks.ts     # Банк задач ЕГЭ
-├── store/
-│   ├── editorStore.ts   # Состояние редактора
-│   ├── loggerStore.ts   # Состояние логирования сессий
-│   ├── runnerStore.ts   # Состояние выполнения кода
-│   └── tutorStore.ts    # Состояние AI-тьютора
-├── index.css        # Стили
-└── main.tsx         # Точка входа
-```
+
+Bucket настраивается как HTTPS static website. Маршрутизация использует hash (`#/experiment`), поэтому server-side SPA fallback не требуется. Микрофон в production требует HTTPS.
+
+Подробности исследования: [протокол](docs/experiment-protocol.md), [словарь данных](docs/data-dictionary.md), [чек-лист пилота](docs/pilot-checklist.md).

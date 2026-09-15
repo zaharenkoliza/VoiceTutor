@@ -27,7 +27,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     useRunnerStore.getState().resetVerification();
     set({
       selectedTaskId: taskId,
-      code: task ? (state.codeByTaskId[taskId] ?? '') : '',
+      code: task ? (state.codeByTaskId[taskId] ?? task.starterCode) : '',
     });
   },
 

@@ -98,13 +98,27 @@ export function TaskSelector() {
       </p>
 
       <div style={{display: 'flex', gap: '20px', marginTop: '40px'}}>
+        <div
+          className="task-card"
+          style={{width: '260px', textAlign: 'center', padding: '30px 20px', border: '1px solid #cba6f7'}}
+          onClick={() => {
+            window.location.hash = '#/experiment';
+          }}
+        >
+          <div className="task-card__number" style={{color: '#cba6f7'}}>Исследование</div>
+          <div className="task-card__title" style={{fontSize: '1.3rem', color: '#f5c2e7'}}>Пилотный трек НИР-3</div>
+          <p style={{color: 'var(--vt-text-secondary)', fontSize: '0.85rem', marginTop: 10}}>
+            Участие в эксперименте (сравнение текста и голоса)
+          </p>
+        </div>
+
         <div 
           className="task-card" 
-          style={{width: '300px', textAlign: 'center', padding: '40px 20px'}}
+          style={{width: '260px', textAlign: 'center', padding: '30px 20px'}}
           onClick={startFullVariant}
         >
           <div className="task-card__number">Режим</div>
-          <div className="task-card__title" style={{fontSize: '1.4rem'}}>Случайный вариант</div>
+          <div className="task-card__title" style={{fontSize: '1.3rem'}}>Случайный вариант</div>
           <p style={{color: 'var(--vt-text-secondary)', fontSize: '0.85rem', marginTop: 10}}>
             Прорешать все доступные типы заданий по очереди
           </p>
@@ -112,11 +126,11 @@ export function TaskSelector() {
 
         <div 
           className="task-card" 
-          style={{width: '300px', textAlign: 'center', padding: '40px 20px'}}
+          style={{width: '260px', textAlign: 'center', padding: '30px 20px'}}
           onClick={() => setMode('practice')}
         >
           <div className="task-card__number">Режим</div>
-          <div className="task-card__title" style={{fontSize: '1.4rem'}}>Тренировка заданий</div>
+          <div className="task-card__title" style={{fontSize: '1.3rem'}}>Тренировка заданий</div>
           <p style={{color: 'var(--vt-text-secondary)', fontSize: '0.85rem', marginTop: 10}}>
             Выбрать конкретный номер задания для отработки
           </p>

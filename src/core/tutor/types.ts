@@ -3,7 +3,6 @@ export interface DialogMessage {
   role: 'user' | 'assistant';
   content: string;
 }
-
 /** EGE task definition */
 export interface Task {
   id: string;
@@ -18,4 +17,6 @@ export interface Task {
   expectedAnswer: string;
   /** Reference solution in Python provided by the tutor */
   referenceSolution?: string;
+  /** Task category for pilot study tracking */
+  category?: 'experiment' | 'practice' | 'training';
 }

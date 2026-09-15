@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import type { Task } from '../core/tutor/types';
 import { verifyAnswer, type VerificationResult } from '../core/tutor/verifier';
-import { useLoggerStore } from './loggerStore';
 import type { ErrorCategory } from '../core/logger';
+import { useExperimentStore } from './experimentStore';
 
 interface RunnerState {
   isRunning: boolean;
@@ -18,13 +18,12 @@ interface RunnerState {
   stopCode: () => void;
   clearOutput: () => void;
   initWorker: () => void;
-  checkAnswer: (task: Task) => void;
+  checkAnswer: (task: Task, submittedAnswerOverride?: string) => void;
   resetVerification: () => void;
 }
 
 let worker: Worker | null = null;
 let currentRunId = 0;
-/** Tracks number of code runs in the current session for FCRR metric. */
 let sessionCodeRunCount = 0;
 
 export const useRunnerStore = create<RunnerState>((set, get) => ({
@@ -55,18 +54,19 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
           if (type === 'error') {
             set((state) => ({ output: state.output + '\nError:\n' + error + '\n' }));
           }
-          // Classify error category for future error typology analysis
           const errorCategory: ErrorCategory = type === 'error'
             ? (error && /SyntaxError|IndentationError/.test(error) ? 'syntax' : 'runtime')
             : 'none';
           const isFirstRun = sessionCodeRunCount === 1;
-          // Log code execution result with error classification
-          useLoggerStore.getState().logEvent({
-            type: 'code_result',
-            content: get().output,
+
+          useExperimentStore.getState().logExperimentEvent('code_result', {
+            output: get().output,
             isFirstRun,
             errorCategory,
+            hasError: type === 'error',
+            errorText: error ?? null,
           });
+
           set({ isRunning: false });
         }
       }
@@ -78,16 +78,22 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
     
     currentRunId++;
     sessionCodeRunCount++;
-    set({ isRunning: true, output: '', verificationResult: null }); // clear output & previous result on new run
-    // Log code submission, marking whether this is the first run in the session
+    set({ isRunning: true, output: '', verificationResult: null });
+
     const isFirstRun = sessionCodeRunCount === 1;
-    useLoggerStore.getState().logEvent({ type: 'code_run', content: code, isFirstRun });
+    useExperimentStore.getState().logExperimentEvent('code_run', {
+      code,
+      runId: currentRunId,
+      isFirstRun,
+      codeLength: code.length,
+      lineCount: code.split('\n').length,
+    });
+
     worker.postMessage({ type: 'run', code, runId: currentRunId });
   },
 
   stopCode: () => {
     if (worker) {
-      // The only way to stop a while True loop in a worker is to terminate the worker
       worker.terminate();
       worker = null;
       set((state) => ({ 
@@ -95,56 +101,49 @@ export const useRunnerStore = create<RunnerState>((set, get) => ({
         output: state.output + '\n[Выполнение остановлено пользователем]\n',
         isReady: false 
       }));
-      // Restart the worker
+      useExperimentStore.getState().logExperimentEvent('code_stop', { runId: currentRunId });
       get().initWorker();
     }
   },
 
-  checkAnswer: (task: Task) => {
+  checkAnswer: (task: Task, submittedAnswerOverride?: string) => {
     const state = get();
-    if (!state.output.trim() || state.isRunning) return;
+    if (state.isRunning) return;
+
+    let answerToCheck = submittedAnswerOverride?.trim();
+
+    if (!answerToCheck) {
+      const lines = state.output.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      answerToCheck = lines[lines.length - 1] ?? '';
+    }
+
+    if (!answerToCheck) return;
 
     const newAttempts = state.attempts + 1;
-    const isCorrect = verifyAnswer(state.output, task.expectedAnswer);
-
-    // Extract actual answer (last non-empty line)
-    const lines = state.output.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    const actual = lines[lines.length - 1] ?? '';
+    const isCorrect = verifyAnswer(answerToCheck, task.expectedAnswer);
 
     const result: VerificationResult = {
       isCorrect,
       expected: task.expectedAnswer,
-      actual,
+      actual: answerToCheck,
       attempt: newAttempts,
     };
 
     set({
       verificationResult: result,
       attempts: newAttempts,
-      isSolved: isCorrect || state.isSolved, // once solved, stays solved
+      isSolved: isCorrect || state.isSolved,
     });
 
-    // Update firstRunCorrect on session if this is the first check
-    if (newAttempts === 1) {
-      const loggerState = useLoggerStore.getState();
-      if (loggerState.currentSession) {
-        useLoggerStore.setState({
-          currentSession: {
-            ...loggerState.currentSession,
-            firstRunCorrect: isCorrect,
-          },
-        });
-      }
-    }
+    useExperimentStore.getState().submitTaskAnswer(answerToCheck, isCorrect);
 
-    // Dispatch event so the tutor can react
     window.dispatchEvent(
       new CustomEvent('answer-checked', { detail: result })
     );
   },
 
   resetVerification: () => {
-    sessionCodeRunCount = 0; // Reset run counter for new task
+    sessionCodeRunCount = 0;
     set({
       verificationResult: null,
       attempts: 0,

@@ -5,9 +5,11 @@ import { useTutorStore } from '../store/tutorStore';
 import { useRunnerStore } from '../store/runnerStore';
 import { useLoggerStore } from '../store/loggerStore';
 import { tasks } from '../data/tasks';
+import { useExperimentStore } from '../store/experimentStore';
 
 
 export function TaskPanel() {
+  const isResearchTask = useExperimentStore((s) => !!s.session && !!s.activeBlockId);
   const selectedTaskId = useEditorStore((s) => s.selectedTaskId);
   const code = useEditorStore((s) => s.code);
   const setCode = useEditorStore((s) => s.setCode);
@@ -37,12 +39,13 @@ export function TaskPanel() {
 
   // Idle detection: ask "нужна помощь?" if the student is inactive for too long
   const IDLE_TIMEOUT_MS = 90_000;
-  const lastActivityRef = useRef<number>(Date.now());
+  const lastActivityRef = useRef<number>(0);
   const idleHintSentRef = useRef(false);
 
   // Resizable panels: heights in percent of total container.
   // The terminal stays small by default but is always present — proportions are set once
   // by the user (drag) and never auto-change on code run or task switch.
+  const [userAnswerInput, setUserAnswerInput] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
   const [descPct, setDescPct] = useState(55);    // task description %
   const [editorPct, setEditorPct] = useState(30); // editor %
@@ -233,7 +236,7 @@ export function TaskPanel() {
           </div>
           <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
             {/* Session result buttons */}
-            <div className="session-controls">
+            {!isResearchTask && <div className="session-controls">
               <button
                 className="session-btn session-btn--solved"
                 onClick={() => handleEndTask('solved')}
@@ -250,9 +253,9 @@ export function TaskPanel() {
               >
                 ❌ Не решено
               </button>
-            </div>
-            <div className="session-controls__divider" />
-            {useEditorStore.getState().taskQueue.indexOf(selectedTaskId ?? '') > 0 && (
+            </div>}
+            {!isResearchTask && <div className="session-controls__divider" />}
+            {!isResearchTask && useEditorStore.getState().taskQueue.indexOf(selectedTaskId ?? '') > 0 && (
               <button
                 className="task-description__back"
                 onClick={() => {
@@ -264,7 +267,7 @@ export function TaskPanel() {
                 ← Предыдущее задание
               </button>
             )}
-            {useEditorStore.getState().taskQueue.length > 1 && (
+            {!isResearchTask && useEditorStore.getState().taskQueue.length > 1 && (
               <button
                 className="task-description__back"
                 onClick={() => {
@@ -276,13 +279,13 @@ export function TaskPanel() {
                 Следующее задание →
               </button>
             )}
-            <button
+            {!isResearchTask && <button
               className="task-description__back"
               onClick={handleBack}
               id="back-button"
             >
               Завершить сессию
-            </button>
+            </button>}
           </div>
         </div>
         <div className="task-description__text">{task.description}</div>
@@ -306,12 +309,30 @@ export function TaskPanel() {
           )}
           <button
             className={`terminal-btn check-btn ${isSolved ? 'check-btn--solved' : ''}`}
-            disabled={!canCheck}
-            onClick={() => checkAnswer(task)}
+            disabled={!canCheck && !userAnswerInput.trim()}
+            onClick={() => {
+              checkAnswer(task, userAnswerInput);
+              setUserAnswerInput('');
+            }}
             id="check-answer-button"
           >
             ✓ Проверить
           </button>
+          <input
+            type="text"
+            placeholder="Ответ..."
+            value={userAnswerInput}
+            onChange={(e) => setUserAnswerInput(e.target.value)}
+            style={{
+              width: '120px',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              border: '1px solid var(--vt-border)',
+              backgroundColor: 'var(--vt-bg-secondary)',
+              color: 'var(--vt-text)',
+              fontSize: '13px',
+            }}
+          />
         </div>
         <div className="editor-container__monaco">
           <Editor
