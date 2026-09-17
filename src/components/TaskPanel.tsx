@@ -37,19 +37,16 @@ export function TaskPanel() {
 
   const lastSentCodeRef = useRef<string>('');
 
-  // Idle detection: ask "нужна помощь?" if the student is inactive for too long
-  const IDLE_TIMEOUT_MS = 90_000;
-  const lastActivityRef = useRef<number>(0);
-  const idleHintSentRef = useRef(false);
+
 
   // Resizable panels: heights in percent of total container.
   // The terminal stays small by default but is always present — proportions are set once
   // by the user (drag) and never auto-change on code run or task switch.
   const [userAnswerInput, setUserAnswerInput] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
-  const [descPct, setDescPct] = useState(55);    // task description %
-  const [editorPct, setEditorPct] = useState(30); // editor %
-  // terminal = 100 - descPct - editorPct (15% by default)
+  const [descPct, setDescPct] = useState(25);    // task description %
+  const [editorPct, setEditorPct] = useState(55); // editor %
+  // terminal = 100 - descPct - editorPct (20% by default)
 
   const draggingRef = useRef<'desc-editor' | 'editor-terminal' | null>(null);
   const startYRef = useRef(0);
@@ -99,7 +96,6 @@ export function TaskPanel() {
   const handleCodeChange = useCallback(
     (value: string | undefined) => {
       setCode(value ?? '');
-      lastActivityRef.current = Date.now();
     },
     [setCode],
   );
@@ -166,7 +162,6 @@ export function TaskPanel() {
     const handleVoiceEvent = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       const voiceText = customEvent.detail;
-      lastActivityRef.current = Date.now();
       if (!task) return;
 
       const currentCode = useEditorStore.getState().code;
@@ -178,30 +173,6 @@ export function TaskPanel() {
     return () => window.removeEventListener('voice-question-ready', handleVoiceEvent);
   }, [task, requestHint]);
 
-  // Reset idle tracking whenever the task changes
-  useEffect(() => {
-    lastActivityRef.current = Date.now();
-    idleHintSentRef.current = false;
-  }, [selectedTaskId]);
-
-  // Treat the end of a tutor response as activity, so the idle clock restarts after it
-  useEffect(() => {
-    if (!isSpeaking) {
-      lastActivityRef.current = Date.now();
-    }
-  }, [isSpeaking]);
-
-  // Periodically check for inactivity and proactively ask if help is needed
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!task || idleHintSentRef.current || isLoading || isSpeaking) return;
-      if (Date.now() - lastActivityRef.current >= IDLE_TIMEOUT_MS) {
-        idleHintSentRef.current = true;
-        requestHint(task, useEditorStore.getState().code, undefined, undefined, true);
-      }
-    }, 5_000);
-    return () => clearInterval(interval);
-  }, [task, isLoading, isSpeaking, requestHint]);
 
   // Init Pyodide worker
   useEffect(() => {
@@ -219,7 +190,7 @@ export function TaskPanel() {
   return (
     <div className="task-panel" ref={panelRef}>
       {/* ─── Task Description ─── */}
-      <div className="task-description" style={{ height: `${descPct}%`, maxHeight: 'none' }}>
+      <div className="task-description" style={{ flex: descPct, minHeight: 0 }}>
         <div className="task-description__header">
           <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
             <span className="task-description__badge">
@@ -300,7 +271,7 @@ export function TaskPanel() {
       </div>
 
       {/* ─── Code Editor ─── */}
-      <div className="editor-container" style={{ height: `${editorPct}%` }}>
+      <div className="editor-container" style={{ flex: editorPct, minHeight: 0 }}>
         <div className="editor-toolbar">
           {isRunning ? (
             <button className="terminal-btn" style={{color: 'var(--vt-error)', borderColor: 'var(--vt-error)'}} onClick={stopCode}>Остановить</button>
@@ -369,7 +340,7 @@ export function TaskPanel() {
       </div>
 
       {/* ─── Terminal ─── */}
-      <div className="terminal-container" style={{ height: `${termPct}%` }}>
+      <div className="terminal-container" style={{ flex: termPct, minHeight: 0 }}>
         <div className="terminal-container__header">
           <span>Терминал (Python 3.11) {isRunning ? '— Выполняется...' : ''} {!isReady ? '(Загрузка Pyodide...)' : ''}</span>
         </div>

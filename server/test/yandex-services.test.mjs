@@ -20,12 +20,28 @@ test('AI Studio adapter uses centralized model and generation parameters', async
     assert.equal(body.model, config.llmModel);
     assert.equal(body.max_tokens, 321);
     assert.equal(body.temperature, 0.25);
+    assert.equal(body.reasoning_effort, 'none');
     return Response.json({ choices: [{ message: { content: 'Подсказка' } }], model: config.llmModel,
       usage: { prompt_tokens: 4, completion_tokens: 2, total_tokens: 6 } });
   };
   const result = await createLLMAdapter(config).chat({ messages: [{ role: 'user', content: 'Вопрос' }] });
   assert.equal(result.content, 'Подсказка');
   assert.equal(result.retryCount, 0);
+});
+
+test('AI Studio adapter accepts reasoning-only truncated response', async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async () => Response.json({
+    choices: [{
+      message: { content: null, reasoning_content: 'Промежуточный ответ' },
+      finish_reason: 'length',
+    }],
+    model: config.llmModel,
+  });
+
+  const result = await createLLMAdapter(config).chat({ messages: [{ role: 'user', content: 'Вопрос' }] });
+  assert.equal(result.content, 'Промежуточный ответ');
 });
 
 test('SpeechKit STT sends PCM without retaining audio', async (t) => {

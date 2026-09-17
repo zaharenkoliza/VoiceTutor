@@ -55,6 +55,7 @@ export function createLLMAdapter(config: ServerConfig): LLMAdapter {
       model: llmModel,
       max_tokens: maxTokens,
       temperature,
+      reasoning_effort: 'none',
       messages: request.messages.map((m) => ({
         role: m.role,
         content: m.content,
@@ -94,12 +95,16 @@ export function createLLMAdapter(config: ServerConfig): LLMAdapter {
         }
 
         const data = await response.json() as {
-          choices?: Array<{ message?: { content?: string } }>;
+          choices?: Array<{
+            message?: { content?: string | null; reasoning_content?: string | null };
+            finish_reason?: string | null;
+          }>;
           model?: string;
           usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
         };
 
-        const content = data.choices?.[0]?.message?.content;
+        const message = data.choices?.[0]?.message;
+        const content = message?.content?.trim() || message?.reasoning_content?.trim();
         if (!content) {
           throw new Error('Empty response from LLM');
         }

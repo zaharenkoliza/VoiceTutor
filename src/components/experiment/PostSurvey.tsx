@@ -26,6 +26,7 @@ export const PostSurvey: React.FC = () => {
   };
 
   return (
+    <div style={{ height: '100%', overflowY: 'auto', padding: '1px 16px' }}>
     <div style={{
       maxWidth: '720px',
       margin: '40px auto',
@@ -128,6 +129,7 @@ export const PostSurvey: React.FC = () => {
           Завершить исследование
         </button>
       </form>
+    </div>
     </div>
   );
 };

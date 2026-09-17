@@ -20,7 +20,7 @@ export const ExperimentBlock: React.FC = () => {
   const activeMode = useExperimentStore((state) => state.activeMode);
   const currentTaskIndex = useExperimentStore((state) => state.currentTaskIndex);
   const blockTasks = useExperimentStore((state) => state.blockTasks);
-  const blockTimeRemainingMs = useExperimentStore((state) => state.blockTimeRemainingMs);
+  const blockElapsedMs = useExperimentStore((state) => state.blockElapsedMs);
   const skipTask = useExperimentStore((state) => state.skipTask);
   const endTaskWithTechnicalError = useExperimentStore((state) => state.endTaskWithTechnicalError);
   const selectTask = useEditorStore((state) => state.selectTask);
@@ -79,7 +79,7 @@ export const ExperimentBlock: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{
+          {activeBlockId !== 'practice' && <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
@@ -89,13 +89,13 @@ export const ExperimentBlock: React.FC = () => {
             border: '1px solid #313244',
             fontSize: '14px',
             fontWeight: 600,
-            color: blockTimeRemainingMs < 180000 ? '#f38ba8' : '#cdd6f4',
+            color: '#cdd6f4',
           }}>
-            <span>⏱️ Время блока:</span>
+            <span>⏱️ Время:</span>
             <span style={{ fontFamily: 'monospace', fontSize: '16px' }}>
-              {formatTimer(blockTimeRemainingMs)}
+              {formatTimer(blockElapsedMs)}
             </span>
-          </div>
+          </div>}
 
           <SyncStatusIndicator />
 

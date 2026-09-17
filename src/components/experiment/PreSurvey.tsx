@@ -20,6 +20,7 @@ export const PreSurvey: React.FC = () => {
   };
 
   return (
+    <div style={{ height: '100%', overflowY: 'auto', padding: '1px 16px' }}>
     <div style={{
       maxWidth: '680px',
       margin: '40px auto',
@@ -101,6 +102,7 @@ export const PreSurvey: React.FC = () => {
           Далее (Переход к треку)
         </button>
       </form>
+    </div>
     </div>
   );
 };

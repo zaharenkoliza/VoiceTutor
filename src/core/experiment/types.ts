@@ -31,8 +31,9 @@ export type ExperimentStep =
   | 'pre_survey'
   | 'practice'
   | 'block1'
-  | 'mid_survey'
+  | 'block1_survey'
   | 'block2'
+  | 'block2_survey'
   | 'post_survey'
   | 'completion';
 
@@ -56,9 +57,6 @@ export interface ExperimentSessionConfig {
   taskSetA: string[];
   taskSetB: string[];
   practiceTasks: string[];
-
-  blockTimeLimitMs: number;
-  taskTimeLimitMs: number;
 
   llmConfig: LLMConfig;
 }
@@ -112,6 +110,7 @@ export interface PreSurveyData {
   pythonExperience: number; // 1-5
   egeTasksFamiliarity: number; // 1-5
   voiceAssistantUsage: number; // 1-5
+  aiAssistantUsage: number; // 1-5
 }
 
 /** Consent info — configurable, not hardcoded */

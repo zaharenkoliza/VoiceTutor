@@ -50,9 +50,8 @@ interface ExperimentState {
   blockTasks: Task[];
   activeTaskAttemptId: string;
 
-  // Timers
-  blockTimeRemainingMs: number;
-  taskTimeRemainingMs: number;
+  // Timers (elapsed only, no timeout)
+  blockElapsedMs: number;
   isTimerRunning: boolean;
 
   // Actions
@@ -94,8 +93,7 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
   blockTasks: [],
   activeTaskAttemptId: '',
 
-  blockTimeRemainingMs: 0,
-  taskTimeRemainingMs: 0,
+  blockElapsedMs: 0,
   isTimerRunning: false,
 
   logExperimentEvent: async (type: EventType, data = {}, requestId) => {
@@ -304,8 +302,7 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
       blockTasks: tasks,
       activeTaskAttemptId: taskAttemptId,
       currentStep: blockId,
-      blockTimeRemainingMs: session.config.blockTimeLimitMs,
-      taskTimeRemainingMs: session.config.taskTimeLimitMs,
+      blockElapsedMs: 0,
       isTimerRunning: true,
     });
 
@@ -339,7 +336,6 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
         currentTaskIndex: nextIndex,
         activeMode: nextMode,
         activeTaskAttemptId: taskAttemptId,
-        taskTimeRemainingMs: session?.config.taskTimeLimitMs ?? 600000,
       });
 
       get().logExperimentEvent('task_start', {
@@ -359,9 +355,9 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
       get().logExperimentEvent('block_end', { blockId: activeBlockId, status: 'completed' });
 
       if (activeBlockId === 'block1') {
-        set({ currentStep: 'mid_survey' });
+        set({ currentStep: 'block1_survey' });
       } else if (activeBlockId === 'block2') {
-        set({ currentStep: 'post_survey' });
+        set({ currentStep: 'block2_survey' });
       } else if (activeBlockId === 'practice') {
         get().startBlock('block1');
       }
@@ -412,7 +408,9 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
 
     if (surveyId === 'block1') {
       get().startBlock('block2');
-    } else if (surveyId === 'block2' || surveyId === 'post') {
+    } else if (surveyId === 'block2') {
+      set({ currentStep: 'post_survey' });
+    } else if (surveyId === 'post') {
       await get().finishExperiment();
     }
   },
@@ -452,8 +450,7 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
         currentTaskIndex: snapshot.currentTaskIndex ?? 0,
         blockTasks: snapshot.blockTasks ?? [],
         activeTaskAttemptId: snapshot.activeTaskAttemptId ?? '',
-        blockTimeRemainingMs: snapshot.blockTimeRemainingMs ?? 0,
-        taskTimeRemainingMs: snapshot.taskTimeRemainingMs ?? 0,
+        blockElapsedMs: snapshot.blockElapsedMs ?? 0,
         isTimerRunning: snapshot.activeBlockId === 'block1' || snapshot.activeBlockId === 'block2',
         eventQueue: queue,
       });
@@ -469,36 +466,13 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
   },
 
   tickTimer: (deltaMs: number) => {
-    const { blockTimeRemainingMs, taskTimeRemainingMs, isTimerRunning } = get();
+    const { blockElapsedMs, isTimerRunning } = get();
     if (!isTimerRunning) return;
 
-    const newBlockTime = Math.max(0, blockTimeRemainingMs - deltaMs);
-    const newTaskTime = Math.max(0, taskTimeRemainingMs - deltaMs);
-
     set({
-      blockTimeRemainingMs: newBlockTime,
-      taskTimeRemainingMs: newTaskTime,
+      blockElapsedMs: blockElapsedMs + deltaMs,
     });
-
-    if (newBlockTime <= 0) {
-      // Block timeout
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-      set({ isTimerRunning: false });
-
-      const { activeBlockId, currentTaskIndex, blockTasks } = get();
-      const currentTask = blockTasks[currentTaskIndex];
-      get().logExperimentEvent('task_end', { taskId: currentTask?.id, status: 'timeout' as CompletionStatus });
-      get().logExperimentEvent('block_end', { blockId: activeBlockId, status: 'timeout' });
-
-      if (activeBlockId === 'block1') {
-        set({ currentStep: 'mid_survey' });
-      } else {
-        set({ currentStep: 'post_survey' });
-      }
-    }
+    // No auto-termination — time is measured for logging only.
   },
 }));
 
@@ -510,7 +484,7 @@ if (typeof window !== 'undefined') {
       activeBlockId: state.activeBlockId, activeMode: state.activeMode,
       currentTaskIndex: state.currentTaskIndex, blockTasks: state.blockTasks,
       activeTaskAttemptId: state.activeTaskAttemptId,
-      blockTimeRemainingMs: state.blockTimeRemainingMs, taskTimeRemainingMs: state.taskTimeRemainingMs,
+      blockElapsedMs: state.blockElapsedMs,
     }));
   });
   window.addEventListener('pagehide', () => {

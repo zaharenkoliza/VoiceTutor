@@ -33,7 +33,7 @@ async function main(): Promise<void> {
   app.use(cors({
     origin: config.allowedOrigins,
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-audio-sample-rate'],
     credentials: false,
   }));
 

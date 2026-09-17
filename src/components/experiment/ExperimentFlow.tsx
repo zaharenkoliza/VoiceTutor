@@ -14,6 +14,7 @@ export const ExperimentFlow: React.FC = () => {
   const currentStep = useExperimentStore((state) => state.currentStep);
   const session = useExperimentStore((state) => state.session);
   const startPracticeBlock = useExperimentStore((state) => state.startPracticeBlock);
+  const activeBlockId = useExperimentStore((state) => state.activeBlockId);
 
   const handleExportLocalEvents = async () => {
     if (!session) return;
@@ -36,6 +37,10 @@ export const ExperimentFlow: React.FC = () => {
       return <PreSurvey />;
 
     case 'practice':
+      if (activeBlockId === 'practice') {
+        return <ExperimentBlock />;
+      }
+
       return (
         <div style={{
           maxWidth: '640px',
@@ -92,11 +97,14 @@ export const ExperimentFlow: React.FC = () => {
     case 'block1':
       return <ExperimentBlock />;
 
-    case 'mid_survey':
+    case 'block1_survey':
       return <BlockSurvey blockId="block1" />;
 
     case 'block2':
       return <ExperimentBlock />;
+
+    case 'block2_survey':
+      return <BlockSurvey blockId="block2" />;
 
     case 'post_survey':
       return <PostSurvey />;

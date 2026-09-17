@@ -1,0 +1,4 @@
+participantId,sessionId,blockId,mode,taskId,durationMs,status,isCorrect,tutorRequestCount,sttLatencyMsAvg,llmLatencyMsAvg,ttsLatencyMsAvg,technicalErrorCount
+TEST001-1,7a609324-2a87-411f-bdea-01e5662ab564,block1,text,pilot-a-24,9997,skipped,False,1,,1512,,0
+TEST001-1,7a609324-2a87-411f-bdea-01e5662ab564,block2,voice,pilot-b-17,125129,timeout,False,6,2703.0,1612,2108.0,5
+TEST001-1,7a609324-2a87-411f-bdea-01e5662ab564,block1,text,pilot-a-17,-226425,skipped,False,1,,1781,,0

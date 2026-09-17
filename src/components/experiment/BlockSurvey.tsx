@@ -33,6 +33,7 @@ export const BlockSurvey: React.FC<Props> = ({ blockId }) => {
   const modeTitle = activeMode === 'voice' ? 'Голосовой ввод' : 'Текстовый ввод';
 
   return (
+    <div style={{ height: '100%', overflowY: 'auto', padding: '1px 16px' }}>
     <div style={{
       maxWidth: '720px',
       margin: '40px auto',
@@ -135,6 +136,7 @@ export const BlockSurvey: React.FC<Props> = ({ blockId }) => {
           {blockId === 'block1' ? 'Перейти к блоку 2' : 'Перейти к итоговому опросу'}
         </button>
       </form>
+    </div>
     </div>
   );
 };

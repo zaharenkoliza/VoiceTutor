@@ -58,6 +58,7 @@ body {
   grid-row: 1;
   display: flex;
   flex-direction: column;
+  height: 100%;
   border-right: 1px solid var(--vt-border);
   overflow: hidden;
   position: relative;
@@ -223,7 +224,7 @@ body {
   padding: 16px 20px;
   background: var(--vt-bg-secondary);
   overflow-y: auto;
-  flex-shrink: 0;
+  min-height: 0;
 }
 
 .task-description__header {
@@ -927,3 +928,237 @@ body {
   80% { transform: translateX(4px); }
 }
 
+/* ============================================
+   Voice Mode UX — Mic Button & Speaking Indicator
+   ============================================ */
+
+.vt-voice-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0 8px;
+}
+
+/* ── Stable-height AI status area (prevents jitter) ── */
+.vt-ai-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 72px;          /* always reserves space so mic doesn't jump */
+  justify-content: center;
+}
+
+/* ── AI Avatar ── */
+.vt-ai-avatar {
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+.vt-ai-avatar--speaking {
+  filter: drop-shadow(0 0 8px rgba(137, 180, 250, 0.6));
+  animation: vtAvatarGlow 2s ease-in-out infinite;
+}
+
+@keyframes vtAvatarGlow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(137, 180, 250, 0.4)); }
+  50% { filter: drop-shadow(0 0 14px rgba(137, 180, 250, 0.8)); }
+}
+
+/* ── Circular Mic Button ── */
+.vt-mic-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid #585b70;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.vt-mic-btn:hover:not(:disabled) {
+  border-color: #89b4fa;
+  color: #89b4fa;
+  box-shadow: 0 0 16px rgba(137, 180, 250, 0.25);
+}
+
+.vt-mic-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Recording state */
+.vt-mic-btn--recording {
+  border-color: #f38ba8;
+  color: #f38ba8;
+  background: rgba(243, 139, 168, 0.1);
+  animation: vtMicPulse 1.5s ease-in-out infinite;
+}
+
+.vt-mic-btn--recording:hover:not(:disabled) {
+  border-color: #f38ba8;
+  color: #f38ba8;
+  box-shadow: 0 0 20px rgba(243, 139, 168, 0.35);
+}
+
+@keyframes vtMicPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(243, 139, 168, 0.35); }
+  50% { box-shadow: 0 0 0 12px rgba(243, 139, 168, 0); }
+}
+
+/* ── Mic Hint ── */
+.vt-mic-hint {
+  font-size: 0.82rem;
+  color: #a6adc8;
+  text-align: center;
+  max-width: 260px;
+  line-height: 1.4;
+  min-height: 1.4em;         /* prevents jitter when label changes */
+}
+
+/* ── Speaking Waves ── */
+.vt-speaking-waves {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 20px;
+}
+
+.vt-wave {
+  display: inline-block;
+  width: 4px;
+  border-radius: 2px;
+  background: #89b4fa;
+  animation: vtWaveBounce 1s ease-in-out infinite;
+}
+.vt-wave:nth-child(1) { height: 8px; animation-delay: 0s; }
+.vt-wave:nth-child(2) { height: 14px; animation-delay: 0.15s; }
+.vt-wave:nth-child(3) { height: 20px; animation-delay: 0.3s; }
+.vt-wave:nth-child(4) { height: 14px; animation-delay: 0.45s; }
+.vt-wave:nth-child(5) { height: 8px; animation-delay: 0.6s; }
+
+@keyframes vtWaveBounce {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+/* ── Processing Dots ── */
+.vt-processing-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  height: 20px;
+}
+
+.vt-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a6adc8;
+  animation: vtDotPulse 1.2s ease-in-out infinite;
+}
+.vt-dot:nth-child(2) { animation-delay: 0.2s; }
+.vt-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes vtDotPulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
+
+/* ── Sound Tip ── */
+.vt-sound-tip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: rgba(137, 180, 250, 0.1);
+  border: 1px solid rgba(137, 180, 250, 0.25);
+  font-size: 0.82rem;
+  color: #89b4fa;
+  line-height: 1.4;
+}
+
+.vt-sound-tip__close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #89b4fa;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.vt-sound-tip__close:hover {
+  opacity: 1;
+}
+
+/* ============================================
+   Text Input (Experiment text-mode)
+   ============================================ */
+
+.vt-text-input-area {
+  position: relative;
+  margin-top: 8px;
+}
+
+.vt-text-input {
+  width: 100%;
+  padding: 12px 44px 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #313244;
+  background: #181825;
+  color: #cdd6f4;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vt-text-input::placeholder {
+  color: #585b70;
+}
+
+.vt-text-input:focus {
+  outline: none;
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.15);
+}
+
+.vt-send-btn {
+  position: absolute;
+  right: 8px;
+  bottom: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: #89b4fa;
+  color: #11111b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.vt-send-btn:hover:not(:disabled) {
+  background: #b4d0fb;
+  box-shadow: 0 0 10px rgba(137, 180, 250, 0.3);
+}
+
+.vt-send-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}

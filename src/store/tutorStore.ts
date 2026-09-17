@@ -25,7 +25,7 @@ interface TutorState {
 
   error: string | null;
 
-  requestHint: (task: Task, code: string, voiceQuestion?: string, verificationContext?: { isCorrect: boolean; attempt: number }, isIdleCheck?: boolean) => Promise<string | undefined>;
+  requestHint: (task: Task, code: string, voiceQuestion?: string, verificationContext?: { isCorrect: boolean; attempt: number }) => Promise<string | undefined>;
   toggleMute: () => void;
   initAudio: () => void;
   clearHistory: () => void;
@@ -108,12 +108,12 @@ export const useTutorStore = create<TutorState>((set, get) => ({
     resumeContinuousListening();
   },
 
-  requestHint: async (task: Task, code: string, voiceQuestion?: string, verificationContext?: { isCorrect: boolean; attempt: number }, isIdleCheck?: boolean) => {
+  requestHint: async (task: Task, code: string, voiceQuestion?: string, verificationContext?: { isCorrect: boolean; attempt: number }) => {
     const state = get();
     if (state.isLoading || state.isSpeaking) return;
 
     const codeContent = code.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#')).join('').trim();
-    if (!codeContent && !voiceQuestion && !verificationContext && !isIdleCheck) return;
+    if (!codeContent && !voiceQuestion && !verificationContext) return;
 
     set({ isLoading: true, error: null });
 
@@ -125,7 +125,7 @@ export const useTutorStore = create<TutorState>((set, get) => ({
         // The experimental confirmation UI logs original and submitted text.
       }
 
-      const userMessage = buildUserMessage(task, code, voiceQuestion, verificationContext, isIdleCheck);
+      const userMessage = buildUserMessage(task, code, voiceQuestion, verificationContext);
       const messages: DialogMessage[] = [
         ...state.dialogHistory,
         { role: 'user', content: userMessage },
@@ -136,7 +136,6 @@ export const useTutorStore = create<TutorState>((set, get) => ({
         question: voiceQuestion ?? null,
         inputMode: expState.session ? expState.activeMode : 'voice',
         userMessage,
-        hasVoiceQuestion: !!voiceQuestion,
         hasVerificationContext: !!verificationContext,
       }, requestId);
 

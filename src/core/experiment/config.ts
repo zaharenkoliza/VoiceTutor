@@ -51,14 +51,6 @@ export const PRACTICE_TASKS: string[] = [
   'practice-voice', // Simple task for voice mode practice
 ];
 
-// ─── Time Limits ───────────────────────────────────────────────────
-
-/** Default time limit for one experimental block (20 minutes) */
-export const DEFAULT_BLOCK_TIME_LIMIT_MS = 20 * 60 * 1000;
-
-/** Default time limit for one task (10 minutes) */
-export const DEFAULT_TASK_TIME_LIMIT_MS = 10 * 60 * 1000;
-
 // ─── Counterbalancing ──────────────────────────────────────────────
 
 /** Parse scheme into block assignments */
@@ -100,8 +92,6 @@ export function createDefaultSessionConfig(scheme: CounterbalanceScheme): Experi
     taskSetA: [...TASK_SET_A],
     taskSetB: [...TASK_SET_B],
     practiceTasks: [...PRACTICE_TASKS],
-    blockTimeLimitMs: DEFAULT_BLOCK_TIME_LIMIT_MS,
-    taskTimeLimitMs: DEFAULT_TASK_TIME_LIMIT_MS,
     llmConfig: {
       provider: '',  // Filled from server /api/llm/config
       model: '',
@@ -140,6 +130,13 @@ export const PRE_SURVEY_QUESTIONS: SurveyQuestion[] = [
     pointLabels: ['Никогда', 'Редко', 'Иногда', 'Часто', 'Ежедневно'],
     required: true,
   },
+  {
+    id: 'ai_assistant_usage',
+    text: 'Как часто вы используете AI-ассистентов (ChatGPT, Copilot, YandexGPT и т.д.)?',
+    type: 'likert5',
+    pointLabels: ['Никогда', 'Редко', 'Иногда', 'Часто', 'Практически ежедневно'],
+    required: true,
+  },
 ];
 
 /**
@@ -156,11 +153,27 @@ export const BLOCK_SURVEY_QUESTIONS: SurveyQuestion[] = [
     required: true,
   },
   {
+    id: 'formulation_ease',
+    text: 'Насколько легко было сформулировать вопрос тьютору в этом режиме?',
+    type: 'likert7',
+    scaleLabels: { low: 'Очень сложно', high: 'Очень легко' },
+    pointLabels: ['1 — Очень сложно', '2', '3', '4 — Нейтрально', '5', '6', '7 — Очень легко'],
+    required: true,
+  },
+  {
     id: 'effort',
     text: 'Сколько усилий потребовало взаимодействие с тьютором?',
     type: 'likert7',
     scaleLabels: { low: 'Минимум усилий', high: 'Очень много усилий' },
     pointLabels: ['1 — Минимум усилий', '2', '3', '4 — Умеренно', '5', '6', '7 — Очень много усилий'],
+    required: true,
+  },
+  {
+    id: 'perceived_speed',
+    text: 'Как вы оцениваете скорость получения ответа от тьютора?',
+    type: 'likert7',
+    scaleLabels: { low: 'Очень медленно', high: 'Очень быстро' },
+    pointLabels: ['1 — Очень медленно', '2', '3', '4 — Нейтрально', '5', '6', '7 — Очень быстро'],
     required: true,
   },
   {
@@ -183,7 +196,6 @@ export const BLOCK_SURVEY_QUESTIONS: SurveyQuestion[] = [
  * Final survey: preference between modes.
  */
 export const POST_SURVEY_QUESTIONS: SurveyQuestion[] = [
-  ...BLOCK_SURVEY_QUESTIONS,
   {
     id: 'mode_preference',
     text: 'Какой способ обращения к тьютору вы предпочитаете?',
@@ -192,6 +204,32 @@ export const POST_SURVEY_QUESTIONS: SurveyQuestion[] = [
     pointLabels: [
       '1 — Определённо текст', '2', '3', '4 — Без предпочтения', '5', '6', '7 — Определённо голос',
     ],
+    required: true,
+  },
+  {
+    id: 'perceived_speed_preference',
+    text: 'В каком режиме ответы тьютора приходили быстрее?',
+    type: 'likert7',
+    scaleLabels: { low: 'Определённо в текстовом', high: 'Определённо в голосовом' },
+    pointLabels: [
+      '1 — Определённо текст', '2', '3', '4 — Одинаково', '5', '6', '7 — Определённо голос',
+    ],
+    required: true,
+  },
+  {
+    id: 'formulation_preference',
+    text: 'В каком режиме было легче формулировать вопрос тьютору?',
+    type: 'likert7',
+    scaleLabels: { low: 'Определённо в текстовом', high: 'Определённо в голосовом' },
+    pointLabels: [
+      '1 — Определённо текст', '2', '3', '4 — Одинаково', '5', '6', '7 — Определённо голос',
+    ],
+    required: true,
+  },
+  {
+    id: 'preference_reason',
+    text: 'Почему вы предпочитаете выбранный режим? Опишите кратко.',
+    type: 'open_text',
     required: true,
   },
   {

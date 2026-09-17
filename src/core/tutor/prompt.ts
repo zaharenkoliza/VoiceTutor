@@ -9,7 +9,6 @@ export function buildUserMessage(
   code: string,
   question?: string,
   verificationContext?: { isCorrect: boolean; attempt: number },
-  isIdleCheck?: boolean,
 ): string {
   let message = `Задание №${task.number}: ${task.title}
 ${task.description}
@@ -31,9 +30,6 @@ ${code}
     }
   }
 
-  if (isIdleCheck && !question && !verificationContext) {
-    message += `\n\nУченик уже какое-то время молчит и не меняет код. Коротко (одно предложение) спроси, не нужна ли ему помощь или подсказка.`;
-  }
-
   return message;
 }
+
